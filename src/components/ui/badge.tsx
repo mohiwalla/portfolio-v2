@@ -1,17 +1,17 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import { cn } from "@/lib/utils"
 
 export function Badge({
-    className,
-    ...props
+	className,
+	...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-    return (
-        <div
-            className={cn(
-                "inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-xs font-medium text-foreground/80 backdrop-blur",
-                className
-            )}
-            {...props}
-        />
-    );
+	return (
+		<div
+			className={cn(
+				"border-border bg-secondary/40 text-foreground/80 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium backdrop-blur",
+				className,
+			)}
+			{...props}
+		/>
+	)
 }

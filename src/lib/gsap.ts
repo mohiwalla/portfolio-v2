@@ -1,13 +1,13 @@
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import gsap from "gsap"
+import { ScrollTrigger } from "gsap/ScrollTrigger"
 
-let registered = false;
+let registered = false
 
 export function registerGsap() {
-    if (registered) return { gsap, ScrollTrigger };
-    gsap.registerPlugin(ScrollTrigger);
-    registered = true;
-    return { gsap, ScrollTrigger };
+	if (registered) return { gsap, ScrollTrigger }
+	gsap.registerPlugin(ScrollTrigger)
+	registered = true
+	return { gsap, ScrollTrigger }
 }
 
-export { gsap, ScrollTrigger };
+export { gsap, ScrollTrigger }
