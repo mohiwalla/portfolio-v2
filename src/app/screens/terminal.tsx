@@ -18,7 +18,7 @@ export default function Terminal() {
 
 	return (
 		<div className="bg-background relative min-h-dvh overflow-hidden px-4 py-16">
-			<div className="scanlines pointer-events-none absolute inset-0" />
+			<div className="scanlines absolute inset-0" />
 
 			<div className="absolute top-6 left-6 z-10">
 				<Link

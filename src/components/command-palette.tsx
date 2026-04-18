@@ -147,7 +147,7 @@ export default function CommandPalette() {
 						>
 							<Command
 								label="command menu"
-								className="border-border bg-card overflow-hidden rounded-xl border p-2 shadow-2xl"
+								className="border-border bg-card overflow-hidden rounded-xl border shadow-2xl"
 							>
 								<div className="border-border flex items-center gap-2 border-b px-3 py-2">
 									<Search className="text-muted-foreground h-4 w-4" />
@@ -260,7 +260,7 @@ export default function CommandPalette() {
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0, y: 16 }}
 						transition={{ duration: 0.2 }}
-						className="pointer-events-none fixed bottom-8 left-1/2 z-[120] -translate-x-1/2"
+						className="fixed bottom-8 left-1/2 z-120 -translate-x-1/2"
 					>
 						<div className="border-border bg-card text-foreground rounded-full border px-4 py-2 font-mono text-xs shadow-xl">
 							{toast}

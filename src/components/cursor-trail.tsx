@@ -58,10 +58,7 @@ export default function CursorTrail() {
 	if (!cursorTrailOn || reduced) return null
 
 	return (
-		<div
-			aria-hidden
-			className="pointer-events-none fixed inset-0 z-50 overflow-hidden"
-		>
+		<div aria-hidden className="fixed inset-0 z-50 overflow-hidden">
 			{points.map((p, i) => {
 				const progress = (i + 1) / points.length
 				return (

@@ -41,7 +41,7 @@ export default function Skills() {
 				<div className="relative">
 					<span
 						aria-hidden
-						className="font-display text-foreground/[0.04] text-mega pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap select-none"
+						className="font-display text-foreground/4 text-mega absolute inset-0 flex items-center justify-center whitespace-nowrap select-none"
 					>
 						stack
 					</span>

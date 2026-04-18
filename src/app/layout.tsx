@@ -144,7 +144,7 @@ function LayoutShell() {
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0, y: 16 }}
 						transition={{ duration: 0.2 }}
-						className="pointer-events-none fixed bottom-8 left-1/2 z-[120] -translate-x-1/2"
+						className="fixed bottom-8 left-1/2 z-120 -translate-x-1/2"
 					>
 						<div className="border-border bg-card text-foreground rounded-full border px-4 py-2 font-mono text-xs shadow-xl">
 							{toast}

@@ -3,6 +3,18 @@ import { useNavigate } from "react-router"
 import { FitAddon } from "@xterm/addon-fit"
 import { Terminal as XTerm } from "@xterm/xterm"
 import siteData from "@/lib/site-data"
+import {
+	EMPTY_TERMINAL_EDITOR_STATE,
+	appendPrintable,
+	acceptSuggestion,
+	clearLine,
+	deleteChar,
+	deleteWord,
+	historyDown,
+	historyUp,
+	pushHistory,
+	type TerminalEditorState,
+} from "@/lib/terminal-editor"
 import { useEasterEggs } from "@/stores/easter-eggs"
 import { cn } from "@/lib/utils"
 
@@ -28,14 +40,6 @@ interface TerminalShellProps {
 	focusToken?: number
 }
 
-interface ShellState {
-	input: string
-	draft: string
-	history: string[]
-	historyIdx: number
-	suggestion: string
-}
-
 const COMMANDS = siteData.terminal.commands.map(command => command.cmd)
 
 function isPrintable(data: string) {
@@ -45,16 +49,6 @@ function isPrintable(data: string) {
 		data !== "\u007f" &&
 		data !== "\r"
 	)
-}
-
-function deletePreviousWord(input: string) {
-	if (!input) return ""
-
-	if (/\s+$/.test(input)) {
-		return input.replace(/\s+$/, "")
-	}
-
-	return input.replace(/\s*\S+$/, "")
 }
 
 export default function TerminalShell({
@@ -72,12 +66,9 @@ export default function TerminalShell({
 	const terminalRef = React.useRef<XTerm | null>(null)
 	const fitAddonRef = React.useRef<FitAddon | null>(null)
 	const suppressNextWordDeleteRef = React.useRef(false)
-	const shellStateRef = React.useRef<ShellState>({
-		input: "",
-		draft: "",
+	const shellStateRef = React.useRef<TerminalEditorState>({
+		...EMPTY_TERMINAL_EDITOR_STATE,
 		history: [],
-		historyIdx: -1,
-		suggestion: "",
 	})
 
 	React.useEffect(() => {
@@ -111,7 +102,8 @@ export default function TerminalShell({
 		})
 	}, [])
 
-	const writeLine = React.useCallback((text: string, kind: LineKind) => {
+	const writeLine = React.useCallback(
+		(text: string, kind: LineKind, leadingBreak = true) => {
 		const terminal = terminalRef.current
 		if (!terminal) return
 
@@ -122,38 +114,17 @@ export default function TerminalShell({
 					? "\u001b[38;2;232;232;232m"
 					: "\u001b[38;2;255;255;255m"
 
-		terminal.write(`\r\n${color}${text}\u001b[0m`)
-	}, [])
-
-	const replaceInput = React.useCallback((nextInput: string) => {
-		const shellState = shellStateRef.current
-		shellState.input = nextInput
-	}, [])
+		terminal.write(`${leadingBreak ? "\r\n" : ""}${color}${text}\u001b[0m`)
+	},
+		[],
+	)
 
 	const getClearedInput = React.useCallback(() => "", [])
-
-	const getWordDeletedInput = React.useCallback(() => {
-		return deletePreviousWord(shellStateRef.current.input)
-	}, [])
-
-	const getSuggestion = React.useCallback((input: string) => {
-		if (!input.trim()) return ""
-
-		const lowerInput = input.toLowerCase()
-		const match = COMMANDS.find(command =>
-			command.toLowerCase().startsWith(lowerInput),
-		)
-
-		if (!match || match.length <= input.length) return ""
-		return match.slice(input.length)
-	}, [])
 
 	const renderInputLine = React.useCallback(() => {
 		const terminal = terminalRef.current
 		const shellState = shellStateRef.current
 		if (!terminal) return
-
-		shellState.suggestion = getSuggestion(shellState.input)
 
 		terminal.write("\x1b[2K\r")
 		terminal.write("\u001b[38;2;245;158;11m$\u001b[0m ")
@@ -165,7 +136,7 @@ export default function TerminalShell({
 			)
 			terminal.write(`\x1b[${shellState.suggestion.length}D`)
 		}
-	}, [getSuggestion])
+	}, [])
 
 	const renderSuggestionTail = React.useCallback((suggestion: string) => {
 		const terminal = terminalRef.current
@@ -184,20 +155,16 @@ export default function TerminalShell({
 	}, [])
 
 	const applyDeletion = React.useCallback(
-		(nextInput: string) => {
+		(previousInput: string, nextInput: string) => {
 			const terminal = terminalRef.current
 			const shellState = shellStateRef.current
 			if (!terminal) return
 
-			const removedCount = shellState.input.length - nextInput.length
+			const removedCount = previousInput.length - nextInput.length
 			if (removedCount < 0) {
-				shellState.input = nextInput
 				renderInputLine()
 				return
 			}
-
-			shellState.input = nextInput
-			shellState.suggestion = getSuggestion(nextInput)
 
 			if (removedCount > 0) {
 				terminal.write("\b".repeat(removedCount))
@@ -206,7 +173,7 @@ export default function TerminalShell({
 			terminal.write("\x1b[K")
 			renderSuggestionTail(shellState.suggestion)
 		},
-		[getSuggestion, renderInputLine, renderSuggestionTail],
+		[renderInputLine, renderSuggestionTail],
 	)
 
 	const writePrompt = React.useCallback(
@@ -289,9 +256,7 @@ export default function TerminalShell({
 					terminal.write("\r\n")
 				}
 
-				if (raw.trim().length > 0) {
-					shellState.history.push(raw)
-				}
+				pushHistory(shellState, raw)
 
 				runCommand(raw)
 				return
@@ -314,7 +279,9 @@ export default function TerminalShell({
 			}
 
 			if (data === "\u0015") {
-				applyDeletion(getClearedInput())
+				const previousInput = shellState.input
+				if (!clearLine(shellState)) return
+				applyDeletion(previousInput, getClearedInput())
 				return
 			}
 
@@ -323,80 +290,55 @@ export default function TerminalShell({
 					suppressNextWordDeleteRef.current = false
 					return
 				}
-				applyDeletion(getWordDeletedInput())
+				const previousInput = shellState.input
+				if (!deleteWord(shellState, COMMANDS)) return
+				applyDeletion(previousInput, shellState.input)
 				return
 			}
 
 			if (data === "\t") {
-				if (shellState.suggestion.length === 0) return
-				terminal.write(shellState.suggestion)
-				shellState.input += shellState.suggestion
-				shellState.suggestion = ""
+				const accepted = shellState.suggestion
+				if (!acceptSuggestion(shellState)) return
+				terminal.write(accepted)
 				terminal.write("\x1b[K")
 				return
 			}
 
 			if (data === "\u001b[C") {
-				if (shellState.suggestion.length === 0) return
-				terminal.write(shellState.suggestion)
-				shellState.input += shellState.suggestion
-				shellState.suggestion = ""
+				const accepted = shellState.suggestion
+				if (!acceptSuggestion(shellState)) return
+				terminal.write(accepted)
 				terminal.write("\x1b[K")
 				return
 			}
 
 			if (data === "\u007f") {
-				if (shellState.input.length === 0) return
-				applyDeletion(shellState.input.slice(0, -1))
+				const previousInput = shellState.input
+				if (!deleteChar(shellState, COMMANDS)) return
+				applyDeletion(previousInput, shellState.input)
 				return
 			}
 
 			if (data === "\u001b[A") {
-				if (shellState.history.length === 0) return
-
-				if (shellState.historyIdx === -1) {
-					shellState.draft = shellState.input
-				}
-
-				const nextIdx =
-					shellState.historyIdx < 0
-						? shellState.history.length - 1
-						: Math.max(0, shellState.historyIdx - 1)
-
-				shellState.historyIdx = nextIdx
-				replaceInput(shellState.history[nextIdx] ?? "")
+				if (!historyUp(shellState, COMMANDS)) return
 				renderInputLine()
 				return
 			}
 
 			if (data === "\u001b[B") {
-				if (
-					shellState.history.length === 0 ||
-					shellState.historyIdx < 0
-				) {
-					return
-				}
-
-				const nextIdx = shellState.historyIdx + 1
-				if (nextIdx >= shellState.history.length) {
-					shellState.historyIdx = -1
-					replaceInput(shellState.draft)
-				} else {
-					shellState.historyIdx = nextIdx
-					replaceInput(shellState.history[nextIdx] ?? "")
-				}
+				if (!historyDown(shellState, COMMANDS)) return
 				renderInputLine()
 				return
 			}
 
 			if (!isPrintable(data)) return
 
-			const previousSuggestion = shellState.suggestion
-			shellState.input += data
+			const { previousSuggestion, nextSuggestion } = appendPrintable(
+				shellState,
+				COMMANDS,
+				data,
+			)
 			terminal.write(data)
-
-			const nextSuggestion = getSuggestion(shellState.input)
-			shellState.suggestion = nextSuggestion
 
 			if (nextSuggestion !== previousSuggestion.slice(1)) {
 				renderSuggestionTail(nextSuggestion)
@@ -404,12 +346,8 @@ export default function TerminalShell({
 		},
 		[
 			applyDeletion,
-			getClearedInput,
-			getSuggestion,
-			getWordDeletedInput,
 			renderInputLine,
 			renderSuggestionTail,
-			replaceInput,
 			runCommand,
 			writePrompt,
 		],
@@ -454,20 +392,26 @@ export default function TerminalShell({
 		terminal.attachCustomKeyEventHandler(event => {
 			if (event.metaKey && event.key === "Backspace") {
 				event.preventDefault()
-				applyDeletion(getClearedInput())
+				const previousInput = shellStateRef.current.input
+				if (!clearLine(shellStateRef.current)) return false
+				applyDeletion(previousInput, "")
 				return false
 			}
 
 			if (event.ctrlKey && event.key === "Backspace") {
 				event.preventDefault()
 				suppressNextWordDeleteRef.current = true
-				applyDeletion(getWordDeletedInput())
+				const previousInput = shellStateRef.current.input
+				if (!deleteWord(shellStateRef.current, COMMANDS)) return false
+				applyDeletion(previousInput, shellStateRef.current.input)
 				return false
 			}
 
 			if (event.ctrlKey && event.key.toLowerCase() === "u") {
 				event.preventDefault()
-				applyDeletion(getClearedInput())
+				const previousInput = shellStateRef.current.input
+				if (!clearLine(shellStateRef.current)) return false
+				applyDeletion(previousInput, "")
 				return false
 			}
 
@@ -484,7 +428,9 @@ export default function TerminalShell({
 		terminalRef.current = terminal
 		fitAddonRef.current = fitAddon
 
-		greetingLines().forEach(line => writeLine(line.text, line.kind))
+		greetingLines().forEach((line, index) =>
+			writeLine(line.text, line.kind, index !== 0),
+		)
 		writePrompt(false)
 		focusTerminal()
 
@@ -512,8 +458,6 @@ export default function TerminalShell({
 	}, [
 		applyDeletion,
 		focusTerminal,
-		getClearedInput,
-		getWordDeletedInput,
 		handleTerminalData,
 		writeLine,
 		writePrompt,

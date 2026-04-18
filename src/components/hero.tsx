@@ -61,9 +61,9 @@ export default function Hero({ onNameClick }: HeroProps) {
 			<motion.div
 				aria-hidden
 				style={{ x: fx, y: fy }}
-				className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
+				className="absolute inset-0 flex items-center justify-center select-none"
 			>
-				<span className="font-display text-foreground/[0.04] text-[min(24vw,15rem)] leading-none break-all sm:break-normal sm:whitespace-nowrap">
+				<span className="font-display text-foreground/4 text-[min(24vw,15rem)] leading-none break-all sm:break-normal sm:whitespace-nowrap">
 					{name}
 				</span>
 			</motion.div>
