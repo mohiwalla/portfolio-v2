@@ -103,16 +103,16 @@ body {
 .text-mega {
 	font-family: var(--font-display);
 	font-weight: 800;
-	font-size: clamp(4rem, 18vw, 22rem);
-	line-height: 0.82;
+	font-size: clamp(3.25rem, 10vw, 10rem);
+	line-height: 0.84;
 	letter-spacing: -0.05em;
 }
 
 .text-giga {
 	font-family: var(--font-display);
 	font-weight: 800;
-	font-size: clamp(6rem, 26vw, 32rem);
-	line-height: 0.78;
+	font-size: clamp(3.75rem, 15vw, 14rem);
+	line-height: 0.82;
 	letter-spacing: -0.06em;
 }
 

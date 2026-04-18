@@ -130,16 +130,10 @@ export default function TerminalShell({
 		shellState.input = nextInput
 	}, [])
 
-	const clearInput = React.useCallback(() => {
-		const shellState = shellStateRef.current
-		shellState.input = ""
-		shellState.suggestion = ""
-	}, [])
+	const getClearedInput = React.useCallback(() => "", [])
 
-	const deleteWord = React.useCallback(() => {
-		const shellState = shellStateRef.current
-		shellState.input = deletePreviousWord(shellState.input)
-		shellState.suggestion = ""
+	const getWordDeletedInput = React.useCallback(() => {
+		return deletePreviousWord(shellStateRef.current.input)
 	}, [])
 
 	const getSuggestion = React.useCallback((input: string) => {
@@ -172,6 +166,48 @@ export default function TerminalShell({
 			terminal.write(`\x1b[${shellState.suggestion.length}D`)
 		}
 	}, [getSuggestion])
+
+	const renderSuggestionTail = React.useCallback((suggestion: string) => {
+		const terminal = terminalRef.current
+		if (!terminal) return
+
+		if (suggestion.length > 0) {
+			terminal.write(
+				`\u001b[38;2;115;115;115m${suggestion}\u001b[0m`,
+			)
+		}
+
+		terminal.write("\x1b[K")
+		if (suggestion.length > 0) {
+			terminal.write(`\x1b[${suggestion.length}D`)
+		}
+	}, [])
+
+	const applyDeletion = React.useCallback(
+		(nextInput: string) => {
+			const terminal = terminalRef.current
+			const shellState = shellStateRef.current
+			if (!terminal) return
+
+			const removedCount = shellState.input.length - nextInput.length
+			if (removedCount < 0) {
+				shellState.input = nextInput
+				renderInputLine()
+				return
+			}
+
+			shellState.input = nextInput
+			shellState.suggestion = getSuggestion(nextInput)
+
+			if (removedCount > 0) {
+				terminal.write("\b".repeat(removedCount))
+			}
+
+			terminal.write("\x1b[K")
+			renderSuggestionTail(shellState.suggestion)
+		},
+		[getSuggestion, renderInputLine, renderSuggestionTail],
+	)
 
 	const writePrompt = React.useCallback(
 		(newLine = true) => {
@@ -278,8 +314,7 @@ export default function TerminalShell({
 			}
 
 			if (data === "\u0015") {
-				clearInput()
-				renderInputLine()
+				applyDeletion(getClearedInput())
 				return
 			}
 
@@ -288,22 +323,31 @@ export default function TerminalShell({
 					suppressNextWordDeleteRef.current = false
 					return
 				}
-				deleteWord()
-				renderInputLine()
+				applyDeletion(getWordDeletedInput())
 				return
 			}
 
 			if (data === "\t") {
 				if (shellState.suggestion.length === 0) return
+				terminal.write(shellState.suggestion)
 				shellState.input += shellState.suggestion
-				renderInputLine()
+				shellState.suggestion = ""
+				terminal.write("\x1b[K")
+				return
+			}
+
+			if (data === "\u001b[C") {
+				if (shellState.suggestion.length === 0) return
+				terminal.write(shellState.suggestion)
+				shellState.input += shellState.suggestion
+				shellState.suggestion = ""
+				terminal.write("\x1b[K")
 				return
 			}
 
 			if (data === "\u007f") {
 				if (shellState.input.length === 0) return
-				shellState.input = shellState.input.slice(0, -1)
-				renderInputLine()
+				applyDeletion(shellState.input.slice(0, -1))
 				return
 			}
 
@@ -347,13 +391,24 @@ export default function TerminalShell({
 
 			if (!isPrintable(data)) return
 
+			const previousSuggestion = shellState.suggestion
 			shellState.input += data
-			renderInputLine()
+			terminal.write(data)
+
+			const nextSuggestion = getSuggestion(shellState.input)
+			shellState.suggestion = nextSuggestion
+
+			if (nextSuggestion !== previousSuggestion.slice(1)) {
+				renderSuggestionTail(nextSuggestion)
+			}
 		},
 		[
-			clearInput,
-			deleteWord,
+			applyDeletion,
+			getClearedInput,
+			getSuggestion,
+			getWordDeletedInput,
 			renderInputLine,
+			renderSuggestionTail,
 			replaceInput,
 			runCommand,
 			writePrompt,
@@ -399,23 +454,20 @@ export default function TerminalShell({
 		terminal.attachCustomKeyEventHandler(event => {
 			if (event.metaKey && event.key === "Backspace") {
 				event.preventDefault()
-				clearInput()
-				renderInputLine()
+				applyDeletion(getClearedInput())
 				return false
 			}
 
 			if (event.ctrlKey && event.key === "Backspace") {
 				event.preventDefault()
 				suppressNextWordDeleteRef.current = true
-				deleteWord()
-				renderInputLine()
+				applyDeletion(getWordDeletedInput())
 				return false
 			}
 
 			if (event.ctrlKey && event.key.toLowerCase() === "u") {
 				event.preventDefault()
-				clearInput()
-				renderInputLine()
+				applyDeletion(getClearedInput())
 				return false
 			}
 
@@ -458,10 +510,11 @@ export default function TerminalShell({
 			terminal.dispose()
 		}
 	}, [
-		clearInput,
+		applyDeletion,
 		focusTerminal,
+		getClearedInput,
+		getWordDeletedInput,
 		handleTerminalData,
-		renderInputLine,
 		writeLine,
 		writePrompt,
 	])

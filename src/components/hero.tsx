@@ -11,30 +11,10 @@ import { ArrowDown, ExternalLink, Mail, Terminal } from "lucide-react"
 import siteData from "@/lib/site-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { useGlobal } from "@/stores/global"
 
 interface HeroProps {
 	onNameClick?: () => void
-}
-
-const container: Variants = {
-	hidden: {},
-	show: {
-		transition: {
-			staggerChildren: 0.03,
-			delayChildren: 0.1,
-		},
-	},
-}
-
-const letter: Variants = {
-	hidden: { opacity: 0, y: 40 },
-	show: {
-		opacity: 1,
-		y: 0,
-		transition: { duration: 0.55, ease: [0.2, 0.8, 0.2, 1] },
-	},
 }
 
 const fadeUp: Variants = {
@@ -57,7 +37,6 @@ export default function Hero({ onNameClick }: HeroProps) {
 	const { hero } = siteData
 	const { openTerminalPanel } = useGlobal()
 	const name = hero.name.toLowerCase()
-	const letters = Array.from(name)
 
 	const mx = useMotionValue(0)
 	const my = useMotionValue(0)
@@ -84,7 +63,7 @@ export default function Hero({ onNameClick }: HeroProps) {
 				style={{ x: fx, y: fy }}
 				className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
 			>
-				<span className="font-display text-foreground/[0.04] text-[32vw] leading-none whitespace-nowrap">
+				<span className="font-display text-foreground/[0.04] text-[min(24vw,15rem)] leading-none break-all sm:break-normal sm:whitespace-nowrap">
 					{name}
 				</span>
 			</motion.div>
@@ -102,36 +81,15 @@ export default function Hero({ onNameClick }: HeroProps) {
 				</motion.div>
 
 				<motion.h1
-					variants={container}
+					variants={fadeUp}
 					initial="hidden"
 					animate="show"
+					transition={{ delay: 0.2 }}
 					onClick={onNameClick}
-					role={onNameClick ? "button" : undefined}
-					tabIndex={onNameClick ? 0 : undefined}
-					onKeyDown={e => {
-						if (!onNameClick) return
-						if (e.key === "Enter" || e.key === " ") {
-							e.preventDefault()
-							onNameClick()
-						}
-					}}
-					className={cn(
-						"text-giga font-display leading-[0.9] tracking-tight select-none",
-						onNameClick &&
-							"hover:text-accent cursor-pointer transition-colors",
-					)}
+					className="text-giga font-display text-foreground w-full max-w-full leading-[0.86] tracking-[-0.075em] break-all select-none sm:break-normal sm:whitespace-nowrap"
 					aria-label={name}
 				>
-					{letters.map((ch, i) => (
-						<motion.span
-							key={`${ch}-${i}`}
-							variants={letter}
-							className="inline-block"
-							style={{ willChange: "transform, opacity" }}
-						>
-							{ch}
-						</motion.span>
-					))}
+					{name}
 				</motion.h1>
 
 				<motion.p

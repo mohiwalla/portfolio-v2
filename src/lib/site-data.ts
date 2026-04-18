@@ -156,12 +156,20 @@ const siteData: SiteData = {
 				href: "https://github.com/mohiwalla",
 			},
 			{
-				label: "email",
-				href: "mailto:kamal@mohiwalla.com",
+				label: "instagram",
+				href: "https://instagram.com/mohiwalla",
 			},
 			{
-				label: "site",
-				href: "https://mohiwalla.com",
+				label: "x",
+				href: "https://x.com/mohiwalla",
+			},
+			{
+				label: "telegram",
+				href: "https://t.me/mohiwalla",
+			},
+			{
+				label: "bluesky",
+				href: "https://bsky.app/profile/mohiwalla.bsky.social",
 			},
 		],
 		signoff:
