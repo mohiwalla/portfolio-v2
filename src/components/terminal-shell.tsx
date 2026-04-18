@@ -47,6 +47,16 @@ function isPrintable(data: string) {
 	)
 }
 
+function deletePreviousWord(input: string) {
+	if (!input) return ""
+
+	if (/\s+$/.test(input)) {
+		return input.replace(/\s+$/, "")
+	}
+
+	return input.replace(/\s*\S+$/, "")
+}
+
 export default function TerminalShell({
 	className,
 	isOpen = true,
@@ -61,6 +71,7 @@ export default function TerminalShell({
 	const containerRef = React.useRef<HTMLDivElement>(null)
 	const terminalRef = React.useRef<XTerm | null>(null)
 	const fitAddonRef = React.useRef<FitAddon | null>(null)
+	const suppressNextWordDeleteRef = React.useRef(false)
 	const shellStateRef = React.useRef<ShellState>({
 		input: "",
 		draft: "",
@@ -117,6 +128,18 @@ export default function TerminalShell({
 	const replaceInput = React.useCallback((nextInput: string) => {
 		const shellState = shellStateRef.current
 		shellState.input = nextInput
+	}, [])
+
+	const clearInput = React.useCallback(() => {
+		const shellState = shellStateRef.current
+		shellState.input = ""
+		shellState.suggestion = ""
+	}, [])
+
+	const deleteWord = React.useCallback(() => {
+		const shellState = shellStateRef.current
+		shellState.input = deletePreviousWord(shellState.input)
+		shellState.suggestion = ""
 	}, [])
 
 	const getSuggestion = React.useCallback((input: string) => {
@@ -254,6 +277,22 @@ export default function TerminalShell({
 				return
 			}
 
+			if (data === "\u0015") {
+				clearInput()
+				renderInputLine()
+				return
+			}
+
+			if (data === "\u0017" || data === "\u001b\u007f") {
+				if (suppressNextWordDeleteRef.current) {
+					suppressNextWordDeleteRef.current = false
+					return
+				}
+				deleteWord()
+				renderInputLine()
+				return
+			}
+
 			if (data === "\t") {
 				if (shellState.suggestion.length === 0) return
 				shellState.input += shellState.suggestion
@@ -311,7 +350,14 @@ export default function TerminalShell({
 			shellState.input += data
 			renderInputLine()
 		},
-		[renderInputLine, replaceInput, runCommand, writePrompt],
+		[
+			clearInput,
+			deleteWord,
+			renderInputLine,
+			replaceInput,
+			runCommand,
+			writePrompt,
+		],
 	)
 
 	React.useEffect(() => {
@@ -351,6 +397,28 @@ export default function TerminalShell({
 
 		terminal.loadAddon(fitAddon)
 		terminal.attachCustomKeyEventHandler(event => {
+			if (event.metaKey && event.key === "Backspace") {
+				event.preventDefault()
+				clearInput()
+				renderInputLine()
+				return false
+			}
+
+			if (event.ctrlKey && event.key === "Backspace") {
+				event.preventDefault()
+				suppressNextWordDeleteRef.current = true
+				deleteWord()
+				renderInputLine()
+				return false
+			}
+
+			if (event.ctrlKey && event.key.toLowerCase() === "u") {
+				event.preventDefault()
+				clearInput()
+				renderInputLine()
+				return false
+			}
+
 			if (
 				(event.metaKey || event.ctrlKey) &&
 				event.key.toLowerCase() === "j"
@@ -389,7 +457,14 @@ export default function TerminalShell({
 			terminalRef.current = null
 			terminal.dispose()
 		}
-	}, [focusTerminal, handleTerminalData, writeLine, writePrompt])
+	}, [
+		clearInput,
+		focusTerminal,
+		handleTerminalData,
+		renderInputLine,
+		writeLine,
+		writePrompt,
+	])
 
 	React.useEffect(() => {
 		if (!isOpen) return
