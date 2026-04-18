@@ -3,6 +3,7 @@
 ## Rules
 
 - Use `bun` instead of `node`, `npm`, and `vitest`.
+- Heed style guide in `.agents/skills/shadcn`.
 - Must use gemini cli for content generation and deploying other sub-agents instead of doing everything yourself.
 
 ## Chat tone

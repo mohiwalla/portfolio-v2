@@ -8,6 +8,7 @@ import {
 	deleteChar,
 	deletePreviousWord,
 	deleteWord,
+	getCommandStatus,
 	historyDown,
 	historyUp,
 	pushHistory,
@@ -51,6 +52,13 @@ test("appendPrintable updates suggestion incrementally", () => {
 	expect(state.input).toBe("he")
 	expect(state.suggestion).toBe("lp")
 	expect(second.previousSuggestion).toBe("elp")
+})
+
+test("getCommandStatus distinguishes valid partial and invalid commands", () => {
+	expect(getCommandStatus(COMMANDS, "")).toBe("empty")
+	expect(getCommandStatus(COMMANDS, "he")).toBe("partial")
+	expect(getCommandStatus(COMMANDS, "help")).toBe("valid")
+	expect(getCommandStatus(COMMANDS, "wat")).toBe("invalid")
 })
 
 test("acceptSuggestion consumes inline completion", () => {

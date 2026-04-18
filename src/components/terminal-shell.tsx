@@ -10,11 +10,17 @@ import {
 	clearLine,
 	deleteChar,
 	deleteWord,
+	getCommandStatus,
 	historyDown,
 	historyUp,
 	pushHistory,
 	type TerminalEditorState,
 } from "@/lib/terminal-editor"
+import {
+	hasPrimaryLinkModifier,
+	linkifyTerminalText,
+	normalizeTerminalHref,
+} from "@/lib/terminal-links"
 import { useEasterEggs } from "@/stores/easter-eggs"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +32,18 @@ interface Line {
 }
 
 const MAILTO = "mailto:kamal@mohiwalla.com"
+const PROMPT_SYMBOL = "➜"
+
+const ANSI = {
+	info: "\u001b[38;2;153;153;153m",
+	output: "\u001b[38;2;232;232;232m",
+	prompt: "\u001b[38;2;134;239;172m",
+	input: "\u001b[38;2;245;245;245m",
+	valid: "\u001b[38;2;134;239;172m",
+	invalid: "\u001b[38;2;252;165;165m",
+	suggestion: "\u001b[38;2;115;115;115m",
+	reset: "\u001b[0m",
+} as const
 
 function greetingLines(): Line[] {
 	return siteData.terminal.greeting.map<Line>(t => ({
@@ -66,6 +84,7 @@ export default function TerminalShell({
 	const terminalRef = React.useRef<XTerm | null>(null)
 	const fitAddonRef = React.useRef<FitAddon | null>(null)
 	const suppressNextWordDeleteRef = React.useRef(false)
+	const platformRef = React.useRef("unknown")
 	const shellStateRef = React.useRef<TerminalEditorState>({
 		...EMPTY_TERMINAL_EDITOR_STATE,
 		history: [],
@@ -77,6 +96,17 @@ export default function TerminalShell({
 			markFound("terminal")
 		}
 	}, [markFound])
+
+	React.useEffect(() => {
+		const navigatorWithUAData = navigator as Navigator & {
+			userAgentData?: { platform?: string }
+		}
+
+		platformRef.current =
+			navigatorWithUAData.userAgentData?.platform ??
+			navigator.platform ??
+			navigator.userAgent
+	}, [])
 
 	React.useEffect(() => {
 		return () => {
@@ -109,13 +139,13 @@ export default function TerminalShell({
 
 			const color =
 				kind === "info"
-					? "\u001b[38;2;153;153;153m"
+					? ANSI.info
 					: kind === "output"
-						? "\u001b[38;2;232;232;232m"
-						: "\u001b[38;2;255;255;255m"
+						? ANSI.output
+						: ANSI.input
 
 			terminal.write(
-				`${leadingBreak ? "\r\n" : ""}${color}${text}\u001b[0m`,
+				`${leadingBreak ? "\r\n" : ""}${color}${linkifyTerminalText(text)}${ANSI.reset}`,
 			)
 		},
 		[],
@@ -123,29 +153,35 @@ export default function TerminalShell({
 
 	const getClearedInput = React.useCallback(() => "", [])
 
+	const getInputColor = React.useCallback((input: string) => {
+		const status = getCommandStatus(COMMANDS, input)
+
+		if (status === "valid") return ANSI.valid
+		if (status === "invalid") return ANSI.invalid
+		return ANSI.input
+	}, [])
+
 	const renderInputLine = React.useCallback(() => {
 		const terminal = terminalRef.current
 		const shellState = shellStateRef.current
 		if (!terminal) return
 
 		terminal.write("\x1b[2K\r")
-		terminal.write("\u001b[38;2;245;158;11m$\u001b[0m ")
-		terminal.write(shellState.input)
+		terminal.write(`${ANSI.prompt}${PROMPT_SYMBOL}${ANSI.reset} `)
+		terminal.write(`${getInputColor(shellState.input)}${shellState.input}${ANSI.reset}`)
 
 		if (shellState.suggestion.length > 0) {
-			terminal.write(
-				`\u001b[38;2;115;115;115m${shellState.suggestion}\u001b[0m`,
-			)
+			terminal.write(`${ANSI.suggestion}${shellState.suggestion}${ANSI.reset}`)
 			terminal.write(`\x1b[${shellState.suggestion.length}D`)
 		}
-	}, [])
+	}, [getInputColor])
 
 	const renderSuggestionTail = React.useCallback((suggestion: string) => {
 		const terminal = terminalRef.current
 		if (!terminal) return
 
 		if (suggestion.length > 0) {
-			terminal.write(`\u001b[38;2;115;115;115m${suggestion}\u001b[0m`)
+			terminal.write(`${ANSI.suggestion}${suggestion}${ANSI.reset}`)
 		}
 
 		terminal.write("\x1b[K")
@@ -159,6 +195,14 @@ export default function TerminalShell({
 			const terminal = terminalRef.current
 			const shellState = shellStateRef.current
 			if (!terminal) return
+
+			const previousStatus = getCommandStatus(COMMANDS, previousInput)
+			const nextStatus = getCommandStatus(COMMANDS, nextInput)
+
+			if (previousStatus !== nextStatus) {
+				renderInputLine()
+				return
+			}
 
 			const removedCount = previousInput.length - nextInput.length
 			if (removedCount < 0) {
@@ -251,8 +295,8 @@ export default function TerminalShell({
 
 				if (normalized !== "clear") {
 					terminal.write("\x1b[2K\r")
-					terminal.write("\u001b[38;2;245;158;11m$\u001b[0m ")
-					terminal.write(raw)
+					terminal.write(`${ANSI.prompt}${PROMPT_SYMBOL}${ANSI.reset} `)
+					terminal.write(`${getInputColor(raw)}${raw}${ANSI.reset}`)
 					terminal.write("\r\n")
 				}
 
@@ -297,18 +341,14 @@ export default function TerminalShell({
 			}
 
 			if (data === "\t") {
-				const accepted = shellState.suggestion
 				if (!acceptSuggestion(shellState)) return
-				terminal.write(accepted)
-				terminal.write("\x1b[K")
+				renderInputLine()
 				return
 			}
 
 			if (data === "\u001b[C") {
-				const accepted = shellState.suggestion
 				if (!acceptSuggestion(shellState)) return
-				terminal.write(accepted)
-				terminal.write("\x1b[K")
+				renderInputLine()
 				return
 			}
 
@@ -338,7 +378,18 @@ export default function TerminalShell({
 				COMMANDS,
 				data,
 			)
-			terminal.write(data)
+			const previousStatus = getCommandStatus(
+				COMMANDS,
+				shellState.input.slice(0, -data.length),
+			)
+			const nextStatus = getCommandStatus(COMMANDS, shellState.input)
+
+			if (previousStatus !== nextStatus) {
+				renderInputLine()
+				return
+			}
+
+			terminal.write(`${getInputColor(shellState.input)}${data}${ANSI.reset}`)
 
 			if (nextSuggestion !== previousSuggestion.slice(1)) {
 				renderSuggestionTail(nextSuggestion)
@@ -346,6 +397,7 @@ export default function TerminalShell({
 		},
 		[
 			applyDeletion,
+			getInputColor,
 			renderInputLine,
 			renderSuggestionTail,
 			runCommand,
@@ -366,6 +418,22 @@ export default function TerminalShell({
 				'"Geist Mono Variable", ui-monospace, SFMono-Regular, monospace',
 			fontSize: 13,
 			letterSpacing: 0.2,
+			linkHandler: {
+				allowNonHttpProtocols: true,
+				activate: (event, text) => {
+					if (!hasPrimaryLinkModifier(event, platformRef.current)) return
+
+					const href = normalizeTerminalHref(text)
+					if (!href) return
+
+					if (href.startsWith("mailto:")) {
+						window.location.href = href
+						return
+					}
+
+					window.open(href, "_blank", "noopener,noreferrer")
+				},
+			},
 			lineHeight: 1.35,
 			theme: {
 				background: "rgba(0, 0, 0, 0)",

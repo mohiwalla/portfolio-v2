@@ -98,7 +98,7 @@ function ExperienceCard({
 					<span>{item.location}</span>
 				</div>
 
-				<h3 className="font-display text-foreground text-[clamp(2.25rem,7vw,5rem)] leading-[0.88] break-words">
+				<h3 className="font-display text-foreground text-[clamp(2.25rem,7vw,5rem)] leading-[0.88] font-bold wrap-break-word">
 					{item.company}
 				</h3>
 
@@ -110,11 +110,11 @@ function ExperienceCard({
 					{bullets.map((b, i) => (
 						<li
 							key={i}
-							className="flex items-start gap-3 leading-relaxed"
+							className="flex items-center gap-3 leading-relaxed"
 						>
 							<span
 								aria-hidden
-								className="text-accent mt-[0.35em] shrink-0 font-mono"
+								className="text-accent shrink-0 font-mono"
 							>
 								»
 							</span>

@@ -6,6 +6,12 @@ export interface TerminalEditorState {
 	suggestion: string
 }
 
+export type TerminalCommandStatus =
+	| "empty"
+	| "partial"
+	| "valid"
+	| "invalid"
+
 export const EMPTY_TERMINAL_EDITOR_STATE: TerminalEditorState = {
 	input: "",
 	draft: "",
@@ -34,6 +40,31 @@ export function getSuggestion(commands: string[], input: string) {
 
 	if (!match || match.length <= input.length) return ""
 	return match.slice(input.length)
+}
+
+export function getCommandStatus(
+	commands: string[],
+	input: string,
+): TerminalCommandStatus {
+	const normalizedInput = input.trim().toLowerCase()
+
+	if (!normalizedInput) return "empty"
+
+	if (
+		commands.some(command => command.trim().toLowerCase() === normalizedInput)
+	) {
+		return "valid"
+	}
+
+	if (
+		commands.some(command =>
+			command.trim().toLowerCase().startsWith(normalizedInput),
+		)
+	) {
+		return "partial"
+	}
+
+	return "invalid"
 }
 
 export function setInput(
