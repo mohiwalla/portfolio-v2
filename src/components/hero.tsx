@@ -1,10 +1,12 @@
-import { useEffect } from "react"
+import { type PointerEvent } from "react"
 import { Link } from "react-router"
 import {
 	motion,
 	useMotionValue,
+	useReducedMotion,
 	useSpring,
 	useTransform,
+	type MotionValue,
 	type Variants,
 } from "framer-motion"
 import { ArrowDown, ExternalLink, Mail, Terminal } from "lucide-react"
@@ -33,40 +35,184 @@ function ctaIcon(href: string) {
 	return null
 }
 
+const backdropLines = [
+	{ top: "24%", left: "14%", width: "26%", rotate: 12 },
+	{ top: "31%", left: "56%", width: "20%", rotate: -22 },
+	{ top: "54%", left: "12%", width: "18%", rotate: -34 },
+	{ top: "64%", left: "58%", width: "24%", rotate: 18 },
+	{ top: "76%", left: "28%", width: "30%", rotate: -8 },
+]
+
+const backdropNodes = [
+	{ top: "20%", left: "22%", size: 14, delay: 0.1 },
+	{ top: "28%", left: "70%", size: 12, delay: 0.6 },
+	{ top: "44%", left: "16%", size: 10, delay: 0.9 },
+	{ top: "58%", left: "78%", size: 14, delay: 0.3 },
+	{ top: "72%", left: "30%", size: 12, delay: 0.7 },
+	{ top: "80%", left: "62%", size: 10, delay: 1.1 },
+]
+
+interface HeroBackdropProps {
+	sx: MotionValue<number>
+	sy: MotionValue<number>
+	reducedMotion: boolean
+}
+
+function HeroBackdrop({ sx, sy, reducedMotion }: HeroBackdropProps) {
+	const driftSlowX = useTransform(sx, value => value * 18)
+	const driftSlowY = useTransform(sy, value => value * 12)
+	const driftMidX = useTransform(sx, value => value * -30)
+	const driftMidY = useTransform(sy, value => value * 22)
+	const driftFastX = useTransform(sx, value => value * 42)
+	const driftFastY = useTransform(sy, value => value * -28)
+	const glowX = useTransform(sx, value => value * 96)
+	const glowY = useTransform(sy, value => value * 72)
+
+	return (
+		<div
+			aria-hidden
+			className="pointer-events-none absolute inset-0 overflow-hidden"
+		>
+			<div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,196,92,0.16),transparent_34%),radial-gradient(circle_at_18%_30%,rgba(255,255,255,0.08),transparent_20%),radial-gradient(circle_at_82%_18%,rgba(255,196,92,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_34%,rgba(0,0,0,0.45))]" />
+
+			<div
+				className="absolute inset-0 opacity-40"
+				style={{
+					backgroundImage:
+						"linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
+					backgroundSize: "140px 140px",
+					maskImage:
+						"radial-gradient(circle at center, black 24%, transparent 78%)",
+				}}
+			/>
+
+			<motion.div
+				style={{ x: glowX, y: glowY }}
+				className="absolute top-1/2 left-1/2 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,196,92,0.3),rgba(255,196,92,0.12)_34%,transparent_70%)] blur-3xl"
+			/>
+
+			<motion.div
+				style={{ x: driftSlowX, y: driftSlowY }}
+				className="absolute inset-0"
+			>
+				{backdropLines.map((line, index) => (
+					<div
+						key={`${line.top}-${line.left}-${index}`}
+						className="absolute h-px rounded-full bg-gradient-to-r from-transparent via-white/22 to-transparent"
+						style={{
+							top: line.top,
+							left: line.left,
+							width: line.width,
+							transform: `rotate(${line.rotate}deg)`,
+							transformOrigin: "left center",
+						}}
+					/>
+				))}
+			</motion.div>
+
+			<motion.div
+				style={{ x: driftMidX, y: driftMidY }}
+				className="absolute inset-0"
+			>
+				{backdropNodes.map(node => (
+					<motion.div
+						key={`${node.top}-${node.left}`}
+						animate={
+							reducedMotion
+								? undefined
+								: {
+										y: [0, -10, 0],
+										opacity: [0.65, 1, 0.65],
+									}
+						}
+						transition={{
+							duration: 5.5,
+							repeat: Infinity,
+							delay: node.delay,
+							ease: "easeInOut",
+						}}
+						className="bg-background/30 absolute rounded-full border border-white/12 shadow-[0_0_40px_rgba(255,255,255,0.05)] backdrop-blur-sm"
+						style={{
+							top: node.top,
+							left: node.left,
+							width: node.size,
+							height: node.size,
+							marginLeft: -node.size / 2,
+							marginTop: -node.size / 2,
+						}}
+					>
+						<span className="bg-accent/80 absolute inset-[26%] rounded-full shadow-[0_0_18px_rgba(255,196,92,0.7)]" />
+					</motion.div>
+				))}
+			</motion.div>
+
+			<motion.div
+				style={{ x: driftFastX, y: driftFastY }}
+				className="absolute top-1/2 left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2"
+			>
+				<motion.div
+					animate={reducedMotion ? undefined : { rotate: 360 }}
+					transition={{
+						duration: 34,
+						repeat: Infinity,
+						ease: "linear",
+					}}
+					className="absolute inset-0 rounded-full border border-white/8"
+				/>
+
+				<motion.div
+					animate={reducedMotion ? undefined : { rotate: -360 }}
+					transition={{
+						duration: 24,
+						repeat: Infinity,
+						ease: "linear",
+					}}
+					className="border-accent/25 absolute inset-[10%] rounded-full border border-dashed"
+				/>
+
+				<div className="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+				<div className="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+				<div className="absolute inset-[24%] rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.08),rgba(255,196,92,0.08)_38%,transparent_72%)] shadow-[inset_0_0_60px_rgba(255,255,255,0.06)]" />
+				<div className="border-accent/30 absolute inset-[34%] rounded-full border bg-[radial-gradient(circle,rgba(255,196,92,0.24),transparent_78%)] shadow-[0_0_50px_rgba(255,196,92,0.16)]" />
+			</motion.div>
+
+			<div className="grain" />
+		</div>
+	)
+}
+
 export default function Hero({ onNameClick }: HeroProps) {
 	const { hero } = siteData
 	const { openTerminalPanel } = useGlobal()
 	const name = hero.name.toLowerCase()
+	const reducedMotion = useReducedMotion()
 
 	const mx = useMotionValue(0)
 	const my = useMotionValue(0)
 	const sx = useSpring(mx, { stiffness: 60, damping: 18, mass: 0.6 })
 	const sy = useSpring(my, { stiffness: 60, damping: 18, mass: 0.6 })
-	const fx = useTransform(sx, v => v * 20)
-	const fy = useTransform(sy, v => v * 20)
 
-	useEffect(() => {
-		const onMove = (e: MouseEvent) => {
-			const x = (e.clientX / window.innerWidth) * 2 - 1
-			const y = (e.clientY / window.innerHeight) * 2 - 1
-			mx.set(x)
-			my.set(y)
-		}
-		window.addEventListener("mousemove", onMove)
-		return () => window.removeEventListener("mousemove", onMove)
-	}, [mx, my])
+	const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
+		const rect = event.currentTarget.getBoundingClientRect()
+		const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+		const y = ((event.clientY - rect.top) / rect.height) * 2 - 1
+		mx.set(x)
+		my.set(y)
+	}
+
+	const handlePointerLeave = () => {
+		mx.set(0)
+		my.set(0)
+	}
 
 	return (
-		<section className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-6">
-			<motion.div
-				aria-hidden
-				style={{ x: fx, y: fy }}
-				className="absolute inset-0 flex items-center justify-center select-none"
-			>
-				<span className="font-display text-foreground/4 text-[min(24vw,15rem)] leading-none break-all sm:break-normal sm:whitespace-nowrap">
-					{name}
-				</span>
-			</motion.div>
+		<section
+			className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-6"
+			onPointerMove={handlePointerMove}
+			onPointerLeave={handlePointerLeave}
+		>
+			<HeroBackdrop sx={sx} sy={sy} reducedMotion={!!reducedMotion} />
 
 			<div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center text-center">
 				<motion.div
