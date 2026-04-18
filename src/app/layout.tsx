@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import CommandPalette from "@/components/command-palette";
 import CursorTrail from "@/components/cursor-trail";
+import TerminalPanel, {
+    TERMINAL_PANEL_COLLAPSED_HEIGHT,
+    TERMINAL_PANEL_HEIGHT,
+} from "@/components/terminal-panel";
 import { EasterEggProvider, useEasterEggs } from "@/stores/easter-eggs";
 import { GlobalProvider, useGlobal } from "@/stores/global";
 import { createKonamiDetector } from "@/lib/konami";
 import { createTypedTrigger } from "@/lib/typed-trigger";
-
-const HIDDEN_HINT_ROUTES = new Set(["/konami", "/chess", "/terminal"]);
 
 function fireKonamiConfetti() {
     if (typeof window === "undefined") return;
@@ -25,7 +27,12 @@ function fireKonamiConfetti() {
 function LayoutShell() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { toggleCursorTrail, markKonamiUnlocked } = useGlobal();
+    const {
+        toggleCursorTrail,
+        markKonamiUnlocked,
+        terminalPanelOpen,
+        toggleTerminalPanel,
+    } = useGlobal();
     const { markFound } = useEasterEggs();
 
     const [toast, setToast] = useState<string | null>(null);
@@ -79,6 +86,27 @@ function LayoutShell() {
     ]);
 
     useEffect(() => {
+        const handleTerminalToggle = (event: KeyboardEvent) => {
+            if (
+                (event.metaKey || event.ctrlKey) &&
+                event.key.toLowerCase() === "j"
+            ) {
+                event.preventDefault();
+                toggleTerminalPanel();
+            }
+        };
+
+        window.addEventListener("keydown", handleTerminalToggle, {
+            capture: true,
+        });
+        return () => {
+            window.removeEventListener("keydown", handleTerminalToggle, {
+                capture: true,
+            });
+        };
+    }, [toggleTerminalPanel]);
+
+    useEffect(() => {
         if (location.pathname !== "/") return;
         const handleHash = () => {
             const id = window.location.hash.replace("#", "");
@@ -92,13 +120,15 @@ function LayoutShell() {
         return () => window.removeEventListener("hashchange", handleHash);
     }, [location.pathname, location.hash]);
 
-    const showHint = useMemo(
-        () => !HIDDEN_HINT_ROUTES.has(location.pathname),
-        [location.pathname]
-    );
-
     return (
-        <div className="relative min-h-screen bg-background text-foreground">
+        <div
+            className="relative min-h-screen bg-background text-foreground transition-[padding] duration-300"
+            style={{
+                paddingBottom: terminalPanelOpen
+                    ? TERMINAL_PANEL_HEIGHT
+                    : TERMINAL_PANEL_COLLAPSED_HEIGHT,
+            }}
+        >
             <CursorTrail />
             <CommandPalette />
 
@@ -109,16 +139,8 @@ function LayoutShell() {
                 mohiwalla
             </Link>
 
-            {showHint ? (
-                <div className="pointer-events-none fixed top-4 right-4 z-40 hidden sm:top-6 sm:right-6 md:block">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 font-mono text-[11px] tracking-wider text-muted-foreground backdrop-blur">
-                        <kbd className="font-mono text-foreground">⌘K</kbd>
-                        <span>command menu</span>
-                    </span>
-                </div>
-            ) : null}
-
             <Outlet />
+            <TerminalPanel />
 
             <AnimatePresence>
                 {toast ? (

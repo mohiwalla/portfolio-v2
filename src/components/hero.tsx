@@ -12,6 +12,7 @@ import siteData from "@/lib/site-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useGlobal } from "@/stores/global";
 
 interface HeroProps {
     onNameClick?: () => void;
@@ -54,6 +55,7 @@ function ctaIcon(href: string) {
 
 export default function Hero({ onNameClick }: HeroProps) {
     const { hero } = siteData;
+    const { openTerminalPanel } = useGlobal();
     const name = hero.name.toLowerCase();
     const letters = Array.from(name);
 
@@ -192,6 +194,19 @@ export default function Hero({ onNameClick }: HeroProps) {
                                         {content}
                                     </Button>
                                 </a>
+                            );
+                        }
+
+                        if (cta.href === "/terminal") {
+                            return (
+                                <Button
+                                    key={cta.label}
+                                    variant={variant}
+                                    size="lg"
+                                    onClick={openTerminalPanel}
+                                >
+                                    {content}
+                                </Button>
                             );
                         }
 

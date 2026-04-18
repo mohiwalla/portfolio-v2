@@ -28,7 +28,7 @@ const ROASTS: string[] = [
     "git commit -m 'stuff'. iconic.",
 ];
 
-const SECTION_IDS = ["hero", "about", "projects", "contact"] as const;
+type SectionId = "hero" | "about" | "projects" | "contact";
 
 function scrollToSection(id: string) {
     if (typeof window === "undefined") return;
@@ -43,7 +43,7 @@ export default function CommandPalette() {
     const toastTimer = useRef<number | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
-    const { toggleCursorTrail } = useGlobal();
+    const { toggleCursorTrail, openTerminalPanel } = useGlobal();
     const { markFound } = useEasterEggs();
 
     useEffect(() => {
@@ -82,7 +82,7 @@ export default function CommandPalette() {
     }, []);
 
     const runNavigate = useCallback(
-        (sectionId: (typeof SECTION_IDS)[number]) => {
+        (sectionId: SectionId) => {
             setOpen(false);
             if (location.pathname !== "/") {
                 navigate(`/#${sectionId}`);
@@ -100,8 +100,8 @@ export default function CommandPalette() {
 
     const handleTerminal = useCallback(() => {
         setOpen(false);
-        navigate("/terminal");
-    }, [navigate]);
+        openTerminalPanel();
+    }, [openTerminalPanel]);
 
     const handleCursorTrail = useCallback(() => {
         toggleCursorTrail();

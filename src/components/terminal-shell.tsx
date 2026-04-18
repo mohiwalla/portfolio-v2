@@ -1,5 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal as XTerm } from "@xterm/xterm";
 import siteData from "@/lib/site-data";
 import { useEasterEggs } from "@/stores/easter-eggs";
 import { cn } from "@/lib/utils";
@@ -20,34 +22,59 @@ function greetingLines(): Line[] {
     }));
 }
 
-export default function TerminalShell() {
+interface TerminalShellProps {
+    className?: string;
+    isOpen?: boolean;
+    focusToken?: number;
+}
+
+interface ShellState {
+    input: string;
+    draft: string;
+    history: string[];
+    historyIdx: number;
+    suggestion: string;
+}
+
+const COMMANDS = siteData.terminal.commands.map((command) => command.cmd);
+
+function isPrintable(data: string) {
+    return (
+        data >= " " &&
+        !data.startsWith("\u001b") &&
+        data !== "\u007f" &&
+        data !== "\r"
+    );
+}
+
+export default function TerminalShell({
+    className,
+    isOpen = true,
+    focusToken = 0,
+}: TerminalShellProps) {
     const navigate = useNavigate();
     const { markFound } = useEasterEggs();
     const markedRef = React.useRef(false);
     const bsodTimerRef = React.useRef<number | null>(null);
-
-    const [lines, setLines] = React.useState<Line[]>(() => greetingLines());
-    const [input, setInput] = React.useState("");
-    const [history, setHistory] = React.useState<string[]>([]);
-    const [historyIdx, setHistoryIdx] = React.useState<number>(-1);
     const [bsod, setBsod] = React.useState(false);
 
-    const inputRef = React.useRef<HTMLInputElement>(null);
-    const scrollRef = React.useRef<HTMLDivElement>(null);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const terminalRef = React.useRef<XTerm | null>(null);
+    const fitAddonRef = React.useRef<FitAddon | null>(null);
+    const shellStateRef = React.useRef<ShellState>({
+        input: "",
+        draft: "",
+        history: [],
+        historyIdx: -1,
+        suggestion: "",
+    });
 
     React.useEffect(() => {
-        inputRef.current?.focus();
         if (!markedRef.current) {
             markedRef.current = true;
             markFound("terminal");
         }
     }, [markFound]);
-
-    React.useEffect(() => {
-        const el = scrollRef.current;
-        if (!el) return;
-        el.scrollTop = el.scrollHeight;
-    }, [lines]);
 
     React.useEffect(() => {
         return () => {
@@ -66,28 +93,96 @@ export default function TerminalShell() {
         return match ? match.response : null;
     };
 
-    const runCommand = (raw: string) => {
+    const focusTerminal = React.useCallback(() => {
+        window.requestAnimationFrame(() => {
+            fitAddonRef.current?.fit();
+            terminalRef.current?.focus();
+        });
+    }, []);
+
+    const writeLine = React.useCallback((text: string, kind: LineKind) => {
+        const terminal = terminalRef.current;
+        if (!terminal) return;
+
+        const color =
+            kind === "info"
+                ? "\u001b[38;2;153;153;153m"
+                : kind === "output"
+                  ? "\u001b[38;2;232;232;232m"
+                  : "\u001b[38;2;255;255;255m";
+
+        terminal.write(`\r\n${color}${text}\u001b[0m`);
+    }, []);
+
+    const replaceInput = React.useCallback((nextInput: string) => {
+        const shellState = shellStateRef.current;
+        shellState.input = nextInput;
+    }, []);
+
+    const getSuggestion = React.useCallback((input: string) => {
+        if (!input.trim()) return "";
+
+        const lowerInput = input.toLowerCase();
+        const match = COMMANDS.find((command) =>
+            command.toLowerCase().startsWith(lowerInput)
+        );
+
+        if (!match || match.length <= input.length) return "";
+        return match.slice(input.length);
+    }, []);
+
+    const renderInputLine = React.useCallback(() => {
+        const terminal = terminalRef.current;
+        const shellState = shellStateRef.current;
+        if (!terminal) return;
+
+        shellState.suggestion = getSuggestion(shellState.input);
+
+        terminal.write("\x1b[2K\r");
+        terminal.write("\u001b[38;2;245;158;11m$\u001b[0m ");
+        terminal.write(shellState.input);
+
+        if (shellState.suggestion.length > 0) {
+            terminal.write(
+                `\u001b[38;2;115;115;115m${shellState.suggestion}\u001b[0m`
+            );
+            terminal.write(`\x1b[${shellState.suggestion.length}D`);
+        }
+    }, [getSuggestion]);
+
+    const writePrompt = React.useCallback((newLine = true) => {
+        const shellState = shellStateRef.current;
+        shellState.input = "";
+        shellState.draft = "";
+        shellState.historyIdx = -1;
+        shellState.suggestion = "";
+
+        if (newLine) {
+            terminalRef.current?.write("\r\n");
+        }
+        renderInputLine();
+    }, [renderInputLine]);
+
+    const runCommand = React.useCallback((raw: string) => {
         const cmd = raw.trim();
-        const echoed: Line = { kind: "input", text: raw };
 
         if (!cmd) {
-            setLines((prev) => [...prev, echoed]);
+            writePrompt(false);
             return;
         }
 
         const low = cmd.toLowerCase();
 
         if (low === "clear") {
-            setLines([]);
+            terminalRef.current?.clear();
+            writePrompt(false);
             return;
         }
 
         const response = findResponse(cmd);
-        const outputs: Line[] = (response ?? [siteData.terminal.fallback]).map(
-            (t) => ({ kind: "output", text: t })
+        (response ?? [siteData.terminal.fallback]).forEach((text) =>
+            writeLine(text, "output")
         );
-
-        setLines((prev) => [...prev, echoed, ...outputs]);
 
         if (low === "hire") {
             markFound("terminal");
@@ -109,107 +204,204 @@ export default function TerminalShell() {
                 bsodTimerRef.current = null;
             }, 3000);
         }
-    };
+        writePrompt(true);
+    }, [markFound, navigate, writeLine, writePrompt]);
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.ctrlKey && (e.key === "l" || e.key === "L")) {
-            e.preventDefault();
-            setLines([]);
-            return;
-        }
+    const handleTerminalData = React.useCallback((data: string) => {
+        const terminal = terminalRef.current;
+        const shellState = shellStateRef.current;
+        if (!terminal) return;
 
-        if (e.key === "Enter") {
-            e.preventDefault();
-            const raw = input;
-            if (raw.trim().length > 0) {
-                setHistory((h) => [...h, raw]);
+        if (data === "\r") {
+            const raw = shellState.input;
+            const normalized = raw.trim().toLowerCase();
+
+            if (normalized !== "clear") {
+                terminal.write("\x1b[2K\r");
+                terminal.write("\u001b[38;2;245;158;11m$\u001b[0m ");
+                terminal.write(raw);
+                terminal.write("\r\n");
             }
-            setHistoryIdx(-1);
-            setInput("");
+
+            if (raw.trim().length > 0) {
+                shellState.history.push(raw);
+            }
+
             runCommand(raw);
             return;
         }
 
-        if (e.key === "ArrowUp") {
-            e.preventDefault();
-            if (history.length === 0) return;
-            const nextIdx =
-                historyIdx < 0
-                    ? history.length - 1
-                    : Math.max(0, historyIdx - 1);
-            setHistoryIdx(nextIdx);
-            setInput(history[nextIdx]);
+        if (data === "\u0003") {
+            terminal.write("^C");
+            shellState.input = "";
+            shellState.draft = "";
+            shellState.historyIdx = -1;
+            shellState.suggestion = "";
+            writePrompt(true);
             return;
         }
 
-        if (e.key === "ArrowDown") {
-            e.preventDefault();
-            if (history.length === 0 || historyIdx < 0) return;
-            const nextIdx = historyIdx + 1;
-            if (nextIdx >= history.length) {
-                setHistoryIdx(-1);
-                setInput("");
-            } else {
-                setHistoryIdx(nextIdx);
-                setInput(history[nextIdx]);
-            }
+        if (data === "\u000c") {
+            terminal.clear();
+            writePrompt(false);
+            return;
         }
-    };
+
+        if (data === "\t") {
+            if (shellState.suggestion.length === 0) return;
+            shellState.input += shellState.suggestion;
+            renderInputLine();
+            return;
+        }
+
+        if (data === "\u007f") {
+            if (shellState.input.length === 0) return;
+            shellState.input = shellState.input.slice(0, -1);
+            renderInputLine();
+            return;
+        }
+
+        if (data === "\u001b[A") {
+            if (shellState.history.length === 0) return;
+
+            if (shellState.historyIdx === -1) {
+                shellState.draft = shellState.input;
+            }
+
+            const nextIdx =
+                shellState.historyIdx < 0
+                    ? shellState.history.length - 1
+                    : Math.max(0, shellState.historyIdx - 1);
+
+            shellState.historyIdx = nextIdx;
+            replaceInput(shellState.history[nextIdx] ?? "");
+            renderInputLine();
+            return;
+        }
+
+        if (data === "\u001b[B") {
+            if (shellState.history.length === 0 || shellState.historyIdx < 0) {
+                return;
+            }
+
+            const nextIdx = shellState.historyIdx + 1;
+            if (nextIdx >= shellState.history.length) {
+                shellState.historyIdx = -1;
+                replaceInput(shellState.draft);
+            } else {
+                shellState.historyIdx = nextIdx;
+                replaceInput(shellState.history[nextIdx] ?? "");
+            }
+            renderInputLine();
+            return;
+        }
+
+        if (!isPrintable(data)) return;
+
+        shellState.input += data;
+        renderInputLine();
+    }, [renderInputLine, replaceInput, runCommand, writePrompt]);
+
+    React.useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const terminal = new XTerm({
+            allowTransparency: true,
+            convertEol: true,
+            cursorBlink: true,
+            cursorStyle: "block",
+            fontFamily:
+                '"Geist Mono Variable", ui-monospace, SFMono-Regular, monospace',
+            fontSize: 13,
+            letterSpacing: 0.2,
+            lineHeight: 1.35,
+            theme: {
+                background: "rgba(0, 0, 0, 0)",
+                foreground: "#f5f5f5",
+                cursor: "#f59e0b",
+                selectionBackground: "rgba(245, 158, 11, 0.28)",
+                black: "#0a0a0a",
+                brightBlack: "#737373",
+                brightBlue: "#93c5fd",
+                brightCyan: "#67e8f9",
+                brightGreen: "#86efac",
+                brightMagenta: "#f0abfc",
+                brightRed: "#fca5a5",
+                brightWhite: "#fafafa",
+                brightYellow: "#fde68a",
+            },
+        });
+        const fitAddon = new FitAddon();
+        const resizeObserver = new ResizeObserver(() => {
+            focusTerminal();
+        });
+
+        terminal.loadAddon(fitAddon);
+        terminal.attachCustomKeyEventHandler((event) => {
+            if (
+                (event.metaKey || event.ctrlKey) &&
+                event.key.toLowerCase() === "j"
+            ) {
+                return false;
+            }
+            return true;
+        });
+        terminal.open(container);
+
+        terminalRef.current = terminal;
+        fitAddonRef.current = fitAddon;
+
+        greetingLines().forEach((line) => writeLine(line.text, line.kind));
+        writePrompt(false);
+        focusTerminal();
+
+        const inputDisposable = terminal.onData(handleTerminalData);
+        const viewport = container.querySelector(".xterm-viewport");
+        const handleWheel = (event: WheelEvent) => {
+            if (!(viewport instanceof HTMLElement)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            viewport.scrollTop += event.deltaY;
+            viewport.scrollLeft += event.deltaX;
+        };
+
+        container.addEventListener("wheel", handleWheel, { passive: false });
+        resizeObserver.observe(container);
+
+        return () => {
+            inputDisposable.dispose();
+            container.removeEventListener("wheel", handleWheel);
+            resizeObserver.disconnect();
+            fitAddonRef.current = null;
+            terminalRef.current = null;
+            terminal.dispose();
+        };
+    }, [focusTerminal, handleTerminalData, writeLine, writePrompt]);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+        focusTerminal();
+    }, [focusTerminal, isOpen]);
+
+    React.useEffect(() => {
+        if (focusToken === 0) return;
+        focusTerminal();
+    }, [focusTerminal, focusToken]);
 
     return (
-        <div className="w-full overflow-hidden rounded-xl border border-border shadow-2xl shadow-black/40">
-            <div className="flex items-center gap-2 border-b border-border bg-secondary/70 px-3 py-2">
-                <span className="h-3 w-3 rounded-full bg-red-500/80" />
-                <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-                <span className="h-3 w-3 rounded-full bg-green-500/80" />
-                <span className="ml-3 font-mono text-xs text-muted-foreground">
-                    mohiwalla@portfolio ~ %
-                </span>
-            </div>
-
+        <div
+            className={cn(
+                "relative h-full min-h-0 overflow-hidden bg-black/70",
+                className
+            )}
+        >
             <div
-                ref={scrollRef}
-                onClick={() => inputRef.current?.focus()}
-                className="max-h-[60vh] min-h-[300px] cursor-text rounded-b-xl border border-border border-t-0 bg-black/60 p-4 font-mono text-sm leading-6 overflow-y-auto"
+                onClick={focusTerminal}
+                className="h-full cursor-text p-4 sm:p-5"
             >
-                {lines.map((l, i) => (
-                    <div
-                        key={i}
-                        className={cn(
-                            "whitespace-pre-wrap",
-                            l.kind === "info" && "text-muted-foreground",
-                            l.kind === "output" && "text-foreground/90",
-                            l.kind === "input" && "text-foreground"
-                        )}
-                    >
-                        {l.kind === "input" ? (
-                            <>
-                                <span className="text-accent">$ </span>
-                                {l.text}
-                            </>
-                        ) : (
-                            l.text
-                        )}
-                    </div>
-                ))}
-
-                <div className="flex items-center">
-                    <span className="mr-2 text-accent">$</span>
-                    <input
-                        ref={inputRef}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        spellCheck={false}
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        autoComplete="off"
-                        aria-label="terminal input"
-                        className="flex-1 border-0 bg-transparent font-mono text-foreground caret-accent outline-none"
-                    />
-                </div>
+                <div ref={containerRef} className="terminal-xterm h-full w-full" />
             </div>
-
             {bsod && (
                 <div
                     role="dialog"

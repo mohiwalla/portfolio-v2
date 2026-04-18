@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@xterm/xterm/css/xterm.css";
 @import "@fontsource-variable/geist/index.css";
 @import "@fontsource-variable/geist-mono/index.css";
 @import "@fontsource-variable/bricolage-grotesque/index.css";
@@ -158,4 +159,19 @@ body {
     content: "▌";
     margin-left: 2px;
     animation: blink 1s steps(2) infinite;
+}
+
+.terminal-xterm .xterm {
+    height: 100%;
+    overscroll-behavior: contain;
+}
+
+.terminal-xterm .xterm-viewport {
+    background: transparent !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+}
+
+.terminal-xterm .xterm-screen {
+    width: 100% !important;
 }
