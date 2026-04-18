@@ -114,9 +114,9 @@ function LayoutShell() {
 		return () => window.removeEventListener("hashchange", handleHash)
 	}, [location.pathname, location.hash])
 
-	return (
+		return (
 		<div
-			className="bg-background text-foreground relative min-h-screen transition-[padding] duration-300"
+			className="bg-background text-foreground relative min-h-screen"
 			style={{
 				paddingBottom: terminalPanelOpen
 					? TERMINAL_PANEL_HEIGHT

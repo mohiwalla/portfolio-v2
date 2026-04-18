@@ -104,18 +104,20 @@ export default function TerminalShell({
 
 	const writeLine = React.useCallback(
 		(text: string, kind: LineKind, leadingBreak = true) => {
-		const terminal = terminalRef.current
-		if (!terminal) return
+			const terminal = terminalRef.current
+			if (!terminal) return
 
-		const color =
-			kind === "info"
-				? "\u001b[38;2;153;153;153m"
-				: kind === "output"
-					? "\u001b[38;2;232;232;232m"
-					: "\u001b[38;2;255;255;255m"
+			const color =
+				kind === "info"
+					? "\u001b[38;2;153;153;153m"
+					: kind === "output"
+						? "\u001b[38;2;232;232;232m"
+						: "\u001b[38;2;255;255;255m"
 
-		terminal.write(`${leadingBreak ? "\r\n" : ""}${color}${text}\u001b[0m`)
-	},
+			terminal.write(
+				`${leadingBreak ? "\r\n" : ""}${color}${text}\u001b[0m`,
+			)
+		},
 		[],
 	)
 
@@ -143,9 +145,7 @@ export default function TerminalShell({
 		if (!terminal) return
 
 		if (suggestion.length > 0) {
-			terminal.write(
-				`\u001b[38;2;115;115;115m${suggestion}\u001b[0m`,
-			)
+			terminal.write(`\u001b[38;2;115;115;115m${suggestion}\u001b[0m`)
 		}
 
 		terminal.write("\x1b[K")
@@ -482,7 +482,7 @@ export default function TerminalShell({
 		>
 			<div
 				onClick={focusTerminal}
-				className="h-full cursor-text p-4 sm:p-5"
+				className="h-full cursor-text p-2 sm:p-3"
 			>
 				<div
 					ref={containerRef}
