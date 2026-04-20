@@ -8,7 +8,7 @@ function Pawn() {
 	return (
 		<svg
 			viewBox="0 0 64 96"
-			className="text-accent h-40 w-40 drop-shadow-[0_12px_40px_rgba(245,158,11,0.25)]"
+			className="text-accent size-40 drop-shadow-[0_12px_40px_var(--color-accent-glow)]"
 			aria-hidden
 		>
 			<path

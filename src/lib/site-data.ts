@@ -9,14 +9,14 @@ const siteData: SiteData = {
 			"obsessed with clean code, good ux, and finding the perfect keyboard shortcut for literally everything.",
 		ctas: [
 			{
-				label: "work with me",
-				href: "mailto:kamal@mohiwalla.com",
-				kind: "primary",
-			},
-			{
 				label: "open terminal",
 				href: "/terminal",
 				kind: "ghost",
+			},
+			{
+				label: "work with me",
+				href: "mailto:kamal@mohiwalla.com",
+				kind: "primary",
 			},
 		],
 	},

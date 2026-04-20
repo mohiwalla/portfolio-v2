@@ -9,6 +9,13 @@
 
 :root {
 	color-scheme: dark;
+	--color-accent-soft: oklch(0.82 0.18 128 / 0.12);
+	--color-accent-glow: oklch(0.84 0.18 128 / 0.3);
+	--color-accent-glow-strong: oklch(0.84 0.2 128 / 0.72);
+	--color-foreground-soft: oklch(0.96 0.02 118 / 0.08);
+	--color-foreground-faint: oklch(0.96 0.02 118 / 0.04);
+	--color-surface-glow: oklch(0.78 0.12 130 / 0.1);
+	--color-shadow-strong: oklch(0 0 0 / 0.45);
 }
 
 @theme inline {
@@ -18,33 +25,33 @@
 		system-ui, sans-serif;
 	--font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
-	--color-background: oklch(0.1 0 0);
-	--color-foreground: oklch(0.97 0 0);
+	--color-background: oklch(0.13 0.018 145);
+	--color-foreground: oklch(0.97 0.014 118);
 
-	--color-card: oklch(0.14 0 0);
-	--color-card-foreground: oklch(0.97 0 0);
+	--color-card: oklch(0.17 0.02 145);
+	--color-card-foreground: oklch(0.97 0.014 118);
 
-	--color-popover: oklch(0.14 0 0);
-	--color-popover-foreground: oklch(0.97 0 0);
+	--color-popover: oklch(0.17 0.02 145);
+	--color-popover-foreground: oklch(0.97 0.014 118);
 
-	--color-primary: oklch(0.97 0 0);
-	--color-primary-foreground: oklch(0.1 0 0);
+	--color-primary: oklch(0.84 0.176 128);
+	--color-primary-foreground: oklch(0.16 0.03 145);
 
-	--color-secondary: oklch(0.2 0 0);
-	--color-secondary-foreground: oklch(0.97 0 0);
+	--color-secondary: oklch(0.23 0.022 145);
+	--color-secondary-foreground: oklch(0.96 0.014 118);
 
-	--color-muted: oklch(0.2 0 0);
-	--color-muted-foreground: oklch(0.65 0 0);
+	--color-muted: oklch(0.21 0.018 145);
+	--color-muted-foreground: oklch(0.74 0.02 126);
 
-	--color-accent: oklch(0.78 0.19 70);
-	--color-accent-foreground: oklch(0.1 0 0);
+	--color-accent: oklch(0.79 0.178 127);
+	--color-accent-foreground: oklch(0.15 0.03 145);
 
 	--color-destructive: oklch(0.62 0.22 25);
 	--color-destructive-foreground: oklch(0.97 0 0);
 
-	--color-border: oklch(0.25 0 0);
-	--color-input: oklch(0.25 0 0);
-	--color-ring: oklch(0.78 0.19 70);
+	--color-border: oklch(0.3 0.024 145);
+	--color-input: oklch(0.3 0.024 145);
+	--color-ring: oklch(0.81 0.182 128);
 
 	--radius-sm: 6px;
 	--radius-md: 10px;
@@ -69,6 +76,10 @@ html {
 
 body {
 	overflow-x: hidden;
+	background-image:
+		radial-gradient(circle at top, var(--color-accent-soft), transparent 30%),
+		linear-gradient(180deg, oklch(0.18 0.03 140) 0%, var(--color-background) 38%);
+	background-attachment: fixed;
 }
 
 ::selection {

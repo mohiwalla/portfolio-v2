@@ -16,7 +16,7 @@ export default function Experience() {
 				className="absolute inset-0 opacity-[0.08]"
 				style={{
 					backgroundImage:
-						"radial-gradient(circle at 20% 0%, var(--color-accent), transparent 42%), linear-gradient(180deg, rgba(245,158,11,0.08) 0%, transparent 28%)",
+						"radial-gradient(circle at 20% 0%, var(--color-accent), transparent 42%), linear-gradient(180deg, var(--color-accent-soft) 0%, transparent 28%)",
 				}}
 			/>
 

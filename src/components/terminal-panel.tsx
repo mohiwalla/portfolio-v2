@@ -85,9 +85,10 @@ export default function TerminalPanel() {
 	)
 
 	return (
-		<div className="fixed inset-x-0 bottom-0 z-95 px-2 sm:px-4">
+		<div className="pointer-events-none fixed inset-x-0 bottom-0 z-95 px-2 sm:px-4">
 			<div
 				ref={panelRef}
+				aria-hidden={!terminalPanelOpen}
 				className="border-border bg-card/95 mx-auto flex w-full max-w-480 flex-col overflow-hidden rounded-t-2xl border shadow-[0_-24px_60px_rgba(0,0,0,0.4)] backdrop-blur transition-transform"
 				style={{
 					height: PANEL_HEIGHT,
@@ -96,6 +97,7 @@ export default function TerminalPanel() {
 						: "translateY(calc(100% + 1rem))",
 					transitionDuration: "250ms",
 					transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+					pointerEvents: terminalPanelOpen ? "auto" : "none",
 				}}
 			>
 				<div className="border-border/80 bg-secondary/70 relative flex h-9 items-center justify-between border-b px-3.5 pt-1">
